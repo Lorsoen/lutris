@@ -1,6 +1,6 @@
 {
-    "human_name": "86Box",
-    "description": "86Box is an open-source, low-level PC emulator.",
+    "human_name": "Box86",
+    "description": "Box86 is an open-source, low-level PC emulator.",
     "platforms": ["MS-DOS"],
     "runnable_alone": "True",
     "runner_executable": "86box/86Box-Linux-x86_64-b3602.AppImage",
@@ -11,7 +11,7 @@
             "option": "main_file",
             "type": "file",
             "label": "Config file",
-            "help": "86Box's Configuration file"
+            "help": "Box86's Configuration file"
         }
     ],
     "runner_options": [
