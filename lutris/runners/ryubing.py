@@ -11,12 +11,12 @@ from lutris.util.log import logger
 
 class ryubing(Runner):
     human_name = _("Ryubing")
-    platforms = [_("Nintendo Switch")]
     description = _("Nintendo Switch emulator")
+    platforms = [_("Nintendo Switch")]
     runnable_alone = True
-    runner_executable = "ryubing/publish/Ryubing"
-    flatpak_id = "io.github.ryubing.Ryubing"
-    download_url = "https://lutris.nyc3.digitaloceanspaces.com/runners/ryubing/ryubing-1.0.7074-linux_x64.tar.gz"
+    runner_executable = "ryubing/ryujinx-1.3.3-x64.AppImage"
+    flatpak_id = "io.github.ryubing.Ryujinx"
+    download_url = "https://git.ryujinx.app/api/v4/projects/1/packages/generic/Ryubing/1.3.3/ryujinx-1.3.3-x64.AppImage"
 
     game_options = [
         {
@@ -41,10 +41,13 @@ class ryubing(Runner):
         },
     ]
 
+    # Ryubing uses an AppImage, no need for the runtime.
+    system_options_override = [{"option": "disable_runtime", "default": True}]
+
     @property
-    def ryubing_data_dir(self):
-        """Return dir where Ryubing files lie."""
-        candidates = ("~/.local/share/ryubing",)
+    def ryujinx_data_dir(self):
+        """Return dir where Ryujinx files lie."""
+        candidates = ("~/.local/share/ryujinx",)
         for candidate in candidates:
             path = system.fix_path_case(os.path.join(os.path.expanduser(candidate), "nand"))
             if system.path_exists(path):
@@ -61,14 +64,14 @@ class ryubing(Runner):
 
     def _update_key(self, key_type):
         """Update a keys file if set"""
-        ryubing_data_dir = self.ryubing_data_dir
-        if not ryubing_data_dir:
-            logger.error("Ryubing data dir not set")
+        ryujinx_data_dir = self.ryujinx_data_dir
+        if not ryujinx_data_dir:
+            logger.error("Ryujinx data dir not set")
             return
         if key_type == "prod_keys":
-            key_loc = os.path.join(ryubing_data_dir, "keys/prod.keys")
+            key_loc = os.path.join(ryujinx_data_dir, "keys/prod.keys")
         elif key_type == "title_keys":
-            key_loc = os.path.join(ryubing_data_dir, "keys/title.keys")
+            key_loc = os.path.join(ryujinx_data_dir, "keys/title.keys")
         else:
             logger.error("Invalid keys type %s!", key_type)
             return

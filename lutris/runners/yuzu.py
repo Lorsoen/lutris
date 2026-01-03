@@ -12,7 +12,7 @@ from lutris.util.log import logger
 class yuzu(Runner):
     human_name = _("Yuzu")
     platforms = [_("Nintendo Switch")]
-    description = _("Nintendo Switch emulator")
+    description = _("Legacy Nintendo Switch emulator")
     runnable_alone = True
     runner_executable = "yuzu/yuzu-mainline.AppImage"
     flatpak_id = "org.yuzu_emu.yuzu"

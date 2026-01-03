@@ -1,6 +1,6 @@
 {
     "human_name": "AzaharPlus",
-    "description": "3DS emulator with .3DS support",
+    "description": "3DS emulator with .3ds file support",
     "platforms": ["Nintendo 3DS"],
     "require_libs": [],
     "runner_executable": "azaharplus/azaharplus-qt",

@@ -1,6 +1,6 @@
 {
     "human_name": "Citra",
-    "description": "Nintendo 3DS emulator",
+    "description": "Legacy Nintendo 3DS emulator",
     "platforms": ["Nintendo 3DS"],
     "require_libs": [],
     "runner_executable": "citra/citra-qt",

@@ -14,7 +14,7 @@ class eden(Runner):
     platforms = [_("Nintendo Switch")]
     description = _("Nintendo Switch emulator")
     runnable_alone = True
-    runner_executable = "eden/eden-mainline.AppImage"
+    runner_executable = "eden/Eden-Linux-v0.0.4-amd64-gcc-standard.AppImage"
     download_url = "https://github.com/eden-emulator/Releases/releases/latest/download/Eden-Linux-v0.0.4-amd64-gcc-standard.AppImage"
     game_options = [
         {
