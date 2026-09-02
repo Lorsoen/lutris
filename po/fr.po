@@ -4,7 +4,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-02 13:07+0200\n"
-"PO-Revision-Date: 2026-09-02 11:37+0200\n"
+"PO-Revision-Date: 2026-09-02 13:52+0200\n"
 "Last-Translator: Lorenzo <fashim99@gmail.com>\n"
 "Language-Team: French <>\n"
 "Language: fr\n"
@@ -7538,7 +7538,7 @@ msgstr "Activer DXVK"
 
 #: lutris/runners/wine.py:367
 msgid "DXVK"
-msgstr ""
+msgstr "DXVK"
 
 #: lutris/runners/wine.py:370
 msgid ""
@@ -7558,7 +7558,7 @@ msgstr "Activer VKD3D"
 
 #: lutris/runners/wine.py:394
 msgid "VKD3D"
-msgstr ""
+msgstr "VKD3D"
 
 #: lutris/runners/wine.py:397
 msgid ""
@@ -7887,11 +7887,11 @@ msgstr "Sélectionnez un fichier EXE ou MSI"
 
 #: lutris/runners/xemu.py:9
 msgid "xemu"
-msgstr ""
+msgstr "xemu"
 
 #: lutris/runners/xemu.py:10
 msgid "Xbox"
-msgstr ""
+msgstr "Xbox"
 
 #: lutris/runners/xemu.py:11
 msgid "Xbox emulator"
@@ -7903,7 +7903,7 @@ msgstr "Image DVD au format iso"
 
 #: lutris/runners/xenia.py:16
 msgid "Xenia"
-msgstr ""
+msgstr "Xenia"
 
 #: lutris/runners/xenia.py:17
 msgid "Xbox 360 Emulator"
@@ -7911,7 +7911,7 @@ msgstr "Émulateur Xbox 360"
 
 #: lutris/runners/xenia.py:18
 msgid "Microsoft Xbox 360"
-msgstr ""
+msgstr "Microsoft Xbox 360"
 
 #: lutris/runners/xenia.py:29
 msgid "Game file"
@@ -7919,15 +7919,15 @@ msgstr "Fichier de jeu"
 
 #: lutris/runners/xenia.py:30
 msgid "Path to .xex or .iso file"
-msgstr ""
+msgstr "Chemin vers le fichier .xex / .iso"
 
 #: lutris/runners/xenia.py:36
 msgid "Wine prefix for Xenia. Leave empty for default."
-msgstr ""
+msgstr "Préfixe Wine pour Xenia. Par défaut = Laisser vide"
 
 #: lutris/runners/xenia.py:44
 msgid "Xenia requires a 64-bit Wine prefix"
-msgstr ""
+msgstr "Xenia requiert un préfixe Wine 64-bits"
 
 #: lutris/runners/xenia.py:102
 #, python-format
@@ -8042,7 +8042,7 @@ msgstr "%s mis à jour"
 
 #: lutris/services/amazon.py:69
 msgid "Amazon"
-msgstr ""
+msgstr "Amazon"
 
 #: lutris/services/amazon.py:179
 msgid "No Amazon user data available, please log in again"
@@ -8092,7 +8092,7 @@ msgstr "Impossible de récupérer les téléchargements de ce jeu."
 
 #: lutris/services/amazon.py:705
 msgid "Amazon Prime Gaming"
-msgstr ""
+msgstr "Amazon Prime Gaming"
 
 #: lutris/services/base.py:234
 msgid "This service does not support extras"
@@ -8110,19 +8110,19 @@ msgstr ""
 
 #: lutris/services/battlenet.py:109
 msgid "Battle.net"
-msgstr ""
+msgstr "Battle.net"
 
 #: lutris/services/ea_app.py:221
 msgid "EA App"
-msgstr ""
+msgstr "EA App"
 
 #: lutris/services/egs.py:142
 msgid "Epic Games Store"
-msgstr ""
+msgstr "Epic Games Store"
 
 #: lutris/services/flathub.py:56
 msgid "Flathub"
-msgstr ""
+msgstr "Flathub"
 
 #: lutris/services/flathub.py:84
 msgid "No flatpak or flatpak-spawn found"
@@ -8133,6 +8133,8 @@ msgid ""
 "Flathub is not configured on the system. Visit https://flatpak.org/setup/ "
 "for instructions."
 msgstr ""
+"Flathub n'est pas configuré sur ce système. Pour voir les instructions, visite"
+"z https://flatpak.org/setup "
 
 #: lutris/services/gamejolt.py:63
 msgid "GameJolt"
@@ -8151,15 +8153,15 @@ msgstr "Échec de l'obtention des identifiants de jeu : %s"
 #: lutris/services/gog_cloud.py:844
 #, python-format
 msgid "Failed to get game-scoped token: %s"
-msgstr ""
+msgstr "Échec de l'obtention du jeton Gamescope : %s"
 
 #: lutris/services/gog_cloud.py:852
 msgid "Invalid game token response: missing user_id or access_token"
-msgstr ""
+msgstr "Réponse du jeton de jeu invalide : user_id ou access_token manquant"
 
 #: lutris/services/gog.py:83
 msgid "GOG"
-msgstr ""
+msgstr "GOG"
 
 #: lutris/services/gog.py:562
 msgid "Couldn't load the download links for this game"
@@ -8213,7 +8215,7 @@ msgstr "Aucun jeu trouvé sur Humble Bundle"
 #. According to their branding, "itch.io" is supposed to be all lowercase
 #: lutris/services/itchio.py:84
 msgid "itch.io"
-msgstr ""
+msgstr "itch.io"
 
 #: lutris/services/itchio.py:129
 msgid ""
@@ -8226,7 +8228,7 @@ msgstr ""
 
 #: lutris/services/itchio.py:138
 msgid "Itch.io API key"
-msgstr ""
+msgstr "Clé API pour Itch.io"
 
 #: lutris/services/lutris.py:133
 #, python-format
@@ -8375,6 +8377,9 @@ msgid ""
 "This replaces the Lutris runtime with Valve's curated library set. Requires "
 "umu-launcher or Steam to be installed."
 msgstr ""
+"Lancer le jeu à l'intérieur du moteur d'exécution Sniper (container sous-press"
+"ion). Il remplace celui de Lutris par les librairies choisies par Valve. Requi"
+"ert l'installation de umu-launcher ou de Steam."
 
 #: lutris/sysoptions.py:154
 msgid "Cloud save sync"
@@ -8385,6 +8390,8 @@ msgid ""
 "Automatically synchronize cloud saves for services that support it "
 "(currently GOG)."
 msgstr ""
+"Synchronise automatiquement les sauvegardes cloud pour les services pris en ch"
+"arge (GOG pour le moment)."
 
 #: lutris/sysoptions.py:161 lutris/sysoptions.py:171 lutris/sysoptions.py:180
 #: lutris/sysoptions.py:194 lutris/sysoptions.py:205 lutris/sysoptions.py:215
