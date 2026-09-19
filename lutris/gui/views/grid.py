@@ -31,6 +31,9 @@ UNINSTALLED_OPACITY = 0.4
 # Upper bound for the in-memory artwork cache (LRU); evicted entries are
 # reloaded from disk, so libraries of any size stay usable.
 PIXBUF_CACHE_SIZE = 500
+# Rebuilds beyond this many tiles run in idle slices so big libraries never
+# freeze the UI; smaller ones keep building synchronously in one go.
+REBUILD_CHUNK_SIZE = 50
 
 
 def rounded_pixbuf(pixbuf, radius):
@@ -108,13 +111,18 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         self._model = None
         self._model_handlers = []
         self._rebuild_pending = False
+        self._rebuild_generation = 0
+        self._rebuild_queue = []
+        self._pending_selection = None
         self._media_size = (176, 234)
 
         # Lets GameView.on_game_start animate launching tiles.
         self.image_renderer = _CardPulseAdapter(self)
 
-        self.set_game_store(store)
-
+        # Connect before the first build (below): _rebuild_locked blocks
+        # selection signals for the whole build, which needs handlers
+        # already connected — otherwise chunked construction builds emit
+        # interim events instead of exactly one at the end.
         self.connect_signals()
         self.categories_registration = categories_db.CATEGORIES_UPDATED.register(self._on_categories_updated)
         self.connect("child-activated", self.on_child_activated)
@@ -123,6 +131,8 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         self.connect("hierarchy-changed", self._on_hierarchy_changed)
         self.connect("destroy", self._disconnect_model)
         self.connect("destroy", self._on_destroy)
+
+        self.set_game_store(store)
 
     def _on_destroy(self, _widget):
         self.categories_registration.unregister()
@@ -268,51 +278,98 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         self._rebuild()
 
     def _rebuild(self):
-        """Recreates every tile from the model, preserving selection by ID.
+        """Recreates every tile from the model, preserving selection by ID."""
+        self._rebuild_locked()
 
-        Selection signals stay blocked throughout: children are transiently
-        out of sync with the model mid-rebuild, so any interim emission
-        would hand out stale paths. One coherent event goes out at the end.
+    def _rebuild_locked(self):
+        """Rebuild body; selection signals stay blocked until completion.
+
+        Small libraries build synchronously. Large ones (beyond
+        REBUILD_CHUNK_SIZE tiles) build in idle slices so the UI never
+        freezes: rows appear progressively and a newer rebuild aborts a
+        stale one via generation. Exactly one selection event goes out at
+        the end either way.
         """
         try:
             self.handler_block_by_func(self.on_selection_changed)
             blocked = True
         except TypeError:
             blocked = False
-        try:
-            self._rebuild_locked()
-        finally:
-            if blocked:
-                try:
-                    self.handler_unblock_by_func(self.on_selection_changed)
-                except TypeError:
-                    pass
-        self._sync_selected_styles()
-        self.on_selection_changed(self)
-
-    def _rebuild_locked(self):
-        """Rebuild body; runs with selection signals blocked."""
+        self._rebuild_generation += 1
+        generation = self._rebuild_generation
         selected_ids = set(self._selected_ids())
         for child in self.get_children():
             self.remove(child)
             child.destroy()
         self._ordered_ids = []
         self._cards_by_id = {}
+        self._rebuild_queue = []
+        self._pending_selection = None
         if self._model is None:
+            self._finish_rebuild(generation, selected_ids, blocked)
             return
-        tree_iter = self._model.get_iter_first()
-        while tree_iter:
-            self._ordered_ids.append(self._model.get_value(tree_iter, COL_ID))
-            tree_iter = self._model.iter_next(tree_iter)
-        self._load_favorite_ids()
+        pending = []
         tree_iter = self._model.get_iter_first()
         while tree_iter:
             game_id = self._model.get_value(tree_iter, COL_ID)
+            self._ordered_ids.append(game_id)
+            pending.append((game_id, self._model_row_ref(tree_iter)))
+            tree_iter = self._model.iter_next(tree_iter)
+        self._load_favorite_ids()
+        if len(pending) <= REBUILD_CHUNK_SIZE:
+            self._build_card_slice(pending)
+            self._finish_rebuild(generation, selected_ids, blocked)
+            return
+        self._rebuild_queue = pending
+        schedule_at_idle(self._rebuild_chunk, generation, selected_ids, blocked)
+
+    def _build_card_slice(self, pending):
+        """Builds and adds one slice of cards; shared by both paths."""
+        for game_id, row_ref in pending:
+            if not row_ref.valid():
+                continue
+            path = row_ref.get_path()
+            if path is None:
+                continue
+            tree_iter = self._model.get_iter(path)
             card, refs = self._build_card(self._model, tree_iter, game_id)
-            refs["row_ref"] = self._model_row_ref(tree_iter)
+            refs["row_ref"] = row_ref
             self._cards_by_id[game_id] = refs
             self.add(card)
-            tree_iter = self._model.iter_next(tree_iter)
+        self.show_all()
+
+    def _rebuild_chunk(self, generation, selected_ids, blocked):
+        """One idle slice of a large rebuild; aborts when superseded."""
+        try:
+            if generation != self._rebuild_generation or self._model is None:
+                self._abort_rebuild(blocked)
+                return
+            pending, self._rebuild_queue = self._rebuild_queue[:REBUILD_CHUNK_SIZE], self._rebuild_queue[REBUILD_CHUNK_SIZE:]
+            self._build_card_slice(pending)
+            if self._rebuild_queue:
+                schedule_at_idle(self._rebuild_chunk, generation, selected_ids, blocked)
+            else:
+                self._finish_rebuild(generation, selected_ids, blocked)
+        except Exception:  # noqa: BLE001 - never leave selection signals blocked
+            logger.debug("Card slice failed", exc_info=True)
+            self._abort_rebuild(blocked)
+
+    def _abort_rebuild(self, blocked):
+        """Ends a superseded rebuild: unblock signals, emit nothing; the
+        newer rebuild owns the single selection event. Never touches the
+        queue: a stale abort firing late must not wipe a newer
+        generation's pending slices (each rebuild assigns its own)."""
+        if blocked:
+            try:
+                self.handler_unblock_by_func(self.on_selection_changed)
+            except TypeError:
+                pass
+
+    def _finish_rebuild(self, generation, selected_ids, blocked):
+        """Completes a rebuild: fit, selection restore, styles, one emit."""
+        if generation != self._rebuild_generation:
+            self._abort_rebuild(blocked)
+            return
         self.show_all()
         first_card = next(iter(self._cards_by_id.values()), {}).get("card")
         if first_card is not None:
@@ -326,6 +383,17 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
                 child = self._cards_by_id[game_id]["card"].get_parent()
                 if child is not None:
                     self.select_child(child)
+        if self._pending_selection is not None:
+            paths, scroll_into_view = self._pending_selection
+            self._pending_selection = None
+            self.set_selected(paths, scroll_into_view=scroll_into_view)
+        self._sync_selected_styles()
+        if blocked:
+            try:
+                self.handler_unblock_by_func(self.on_selection_changed)
+            except TypeError:
+                pass
+        self.on_selection_changed(self)
 
     def _load_favorite_ids(self):
         """Batch-loads which visible games are favorites (one query)."""
@@ -753,6 +821,11 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         return ids
 
     def set_selected(self, paths, scroll_into_view=False):
+        if self._rebuild_queue:
+            # Chunked build in flight: targets don't exist yet; the
+            # finalize step applies the latest request instead.
+            self._pending_selection = (list(paths), scroll_into_view)
+            return
         self.unselect_all()
 
         first = True

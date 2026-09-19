@@ -20,7 +20,7 @@ from lutris.database import categories as categories_db
 from lutris.database import games as games_db
 from lutris.database import schema
 from lutris.gui.views import COL_ID, COL_NAME
-from lutris.gui.views.grid import GameGridView
+from lutris.gui.views.grid import REBUILD_CHUNK_SIZE, GameGridView
 from lutris.util.test_config import setup_test_environment
 
 setup_test_environment()
@@ -110,6 +110,48 @@ class TestFlowBoxGrid(unittest.TestCase):
         self.assertEqual(len(selected), 1)
         self.assertEqual(selected[0].get_indices(), [1])
         self.assertEqual(view.get_game_id_for_path(selected[0]), "2")
+
+    @staticmethod
+    def _pump_until(condition, budget=500):
+        """Drains idle slices (chunked rebuilds) until condition or budget."""
+        for _ in range(budget):
+            while Gtk.events_pending():
+                Gtk.main_iteration()
+            if condition():
+                return True
+        return condition()
+
+    def _make_big_view(self, count, listener=None):
+        rows = [make_row(str(i), "Game %d" % i) for i in range(count)]
+        view = make_view(rows)
+        if listener is not None:
+            view.connect("game-selected", listener)
+        return view
+
+    def test_large_rebuild_chunks_and_completes(self):
+        emissions = []
+        view = self._make_big_view(150, lambda _v, _p: emissions.append(1))
+        self.assertTrue(self._pump_until(lambda: len(view.get_children()) == 150))
+        self.assertEqual(len(view._ordered_ids), 150)
+        self.assertEqual(len(view._cards_by_id), 150)
+        self.assertEqual(len(emissions), 1)
+
+    def test_chunked_rebuild_applies_pending_selection(self):
+        emissions = []
+        view = self._make_big_view(150, lambda _v, _p: emissions.append(1))
+        generation = view._rebuild_generation
+        # Drive slices directly: first slice builds, selection requested
+        # mid-build is deferred, second slice completes and applies it.
+        view._rebuild_chunk(generation, set(), True)
+        self.assertEqual(len(view.get_children()), REBUILD_CHUNK_SIZE)
+        view.set_selected([Gtk.TreePath(5)])
+        for _ in range(10):
+            if len(view.get_children()) >= 150:
+                break
+            view._rebuild_chunk(generation, set(), True)
+        self.assertEqual(len(view.get_children()), 150)
+        self.assertEqual([p.get_indices() for p in view.get_selected()], [[5]])
+        self.assertEqual(len(emissions), 1)
 
     def test_path_for_game_id(self):
         view = make_view([make_row("1", "Undertail"), make_row("2", "Doom")])
