@@ -8,6 +8,7 @@ signals, show_badges, hide_text) is unchanged from the IconView era.
 
 # pylint: disable=no-member
 import html
+from collections import OrderedDict
 from gettext import gettext as _
 
 import cairo
@@ -27,9 +28,9 @@ from lutris.util.path_cache import MISSING_GAMES
 ART_RADIUS = 8
 # Dimming for games that are not installed (was 100/255 in the renderer).
 UNINSTALLED_OPACITY = 0.4
-# Upper bound for the in-memory artwork cache; oldest entries are reloaded
-# from disk, so libraries of any size stay usable.
-PIXBUF_CACHE_SIZE = 300
+# Upper bound for the in-memory artwork cache (LRU); evicted entries are
+# reloaded from disk, so libraries of any size stay usable.
+PIXBUF_CACHE_SIZE = 500
 
 
 def rounded_pixbuf(pixbuf, radius):
@@ -99,7 +100,7 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
 
         self._hide_text = hide_text
         self._show_badges = True
-        self._pixbuf_cache = {}
+        self._pixbuf_cache = OrderedDict()
         self._ordered_ids = []
         self._cards_by_id = {}
         self._favorite_ids = set()
@@ -559,7 +560,7 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         if pixbuf is None:
             return None
         key = ("badge-tint", icon_path, size)
-        tinted = self._pixbuf_cache.get(key)
+        tinted = self._cached_pixbuf(key)
         if tinted is None:
             tinted = self._tinted_badge_icon(pixbuf)
             self._cache_pixbuf(key, tinted)
@@ -583,15 +584,20 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         """Loads (or reloads) the artwork of one tile."""
         media_width, media_height = self._media_size
         pixbuf = None
+        source_key = None
         media_paths = model.get_value(tree_iter, COL_MEDIA_PATHS) or []
         if media_paths:
             media = resolve_media_path(media_paths)
             if media and media.width > 0 and media.height > 0 and media.path:
+                # Mirrors the key _load_pixbuf caches under.
+                source_key = (media.path, media_width, media_height, True)
                 pixbuf = self._load_pixbuf(media.path, (media_width, media_height), True)
         if pixbuf is None:
+            game_id = model.get_value(tree_iter, COL_ID)
+            source_key = ("generated", game_id, media_width, media_height)
             pixbuf = self._generated_art(model, tree_iter)
         if pixbuf is not None:
-            art.set_from_pixbuf(self._rounded_art(pixbuf))
+            art.set_from_pixbuf(self._rounded_art(pixbuf, source_key))
 
     def _generated_art(self, model, tree_iter):
         """Fallback artwork via the shared generator (cached per game/size)."""
@@ -599,8 +605,9 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         game_id = model.get_value(tree_iter, COL_ID)
         name = model.get_value(tree_iter, COL_NAME) or ""
         key = ("generated", game_id, width, height)
-        if key in self._pixbuf_cache:
-            return self._pixbuf_cache[key]
+        cached = self._cached_pixbuf(key)
+        if cached is not None:
+            return cached
         surface = get_generated_game_art(game_id, name, (width, height))
         if surface is None:
             return None
@@ -608,16 +615,29 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         self._cache_pixbuf(key, pixbuf)
         return pixbuf
 
+    def _cached_pixbuf(self, key):
+        """Returns the cached pixbuf, refreshing its LRU position."""
+        try:
+            pixbuf = self._pixbuf_cache.pop(key)
+        except KeyError:
+            return None
+        self._pixbuf_cache[key] = pixbuf
+        return pixbuf
+
     def _cache_pixbuf(self, key, pixbuf):
-        if len(self._pixbuf_cache) >= PIXBUF_CACHE_SIZE:
-            self._pixbuf_cache.pop(next(iter(self._pixbuf_cache)))
+        if key in self._pixbuf_cache:
+            self._pixbuf_cache.move_to_end(key)
+        else:
+            while len(self._pixbuf_cache) >= PIXBUF_CACHE_SIZE:
+                self._pixbuf_cache.popitem(last=False)
         self._pixbuf_cache[key] = pixbuf
 
     def _load_pixbuf(self, path, size, keep_aspect):
         """Cached artwork loading; corrupt files fall back to nothing."""
         key = (path, size[0], size[1], keep_aspect)
         if key in self._pixbuf_cache:
-            return self._pixbuf_cache[key]
+            # Includes cached load failures (None): never re-decode those.
+            return self._cached_pixbuf(key)
         try:
             pixbuf = get_pixbuf_by_path(path, size=size, preserve_aspect_ratio=keep_aspect)
         except Exception:  # noqa: BLE001 - a corrupt image must not break the view
@@ -626,11 +646,16 @@ class GameGridView(Gtk.FlowBox, GameView):  # type:ignore[misc]
         self._cache_pixbuf(key, pixbuf)
         return pixbuf
 
-    def _rounded_art(self, pixbuf):
-        """Returns an artwork copy with rounded corners for the card."""
-        key = ("rounded", id(pixbuf))
-        if key in self._pixbuf_cache:
-            return self._pixbuf_cache[key]
+    def _rounded_art(self, pixbuf, source_key):
+        """Returns an artwork copy with rounded corners for the card.
+
+        Keyed by the source artwork's cache key: keying by id() hands back
+        another game's art once evicted pixbufs get their ids recycled.
+        """
+        key = ("rounded",) + tuple(source_key)
+        cached = self._cached_pixbuf(key)
+        if cached is not None:
+            return cached
         width, height = pixbuf.get_width(), pixbuf.get_height()
         surface = Gdk.cairo_surface_create_from_pixbuf(pixbuf, 1, None)
         target = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
